@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Netflix</title>
+    <link rel="stylesheet" type="text/css" href="css/general.css">
+    <link rel="stylesheet" type="text/css" href="css/nav.css">
+    <link rel="stylesheet" type="text/css" href="css/search/header.css">
+    <link rel="stylesheet" type="text/css" href="css/search/pack.css">
+    <link rel="stylesheet" type="text/css" href="css/search/search.css">
+<link rel="stylesheet" type="text/css" href="css/modal.css">
+
+
+</head>
+<body>
+    
+<header class="header" id="header">
+<div class="header-top">
+
+<div class="header-left">
+        <p class="foryou">Search</p>
+</div>
+
+        <div class="header-right">
+                                    <img id="header-icon-img" src="media/icons/header/notifications.png">
+        </div>
+</div>
+
+<div class="header-bottom">
+                <div class="search-div">
+<input class="search" id="search-input" type="text" placeholder="Search shows, movies, games" autocomplete="off">
+<img src="media/icons/search/search.png">
+<button id="search-clear" class="search-clear hidden" aria-label="Clear search">&times;</button>
+</div>
+</div>
+</header>
+
+
+
+<nav id="navbar">
+
+	<div class="nav-main">
+
+        <div class="nav-pack">
+<a class="nav-links" href="home.html">
+            <img class="nav-img" src="media/icons/navigation/home.png">
+            <p class="static">Home</p>
+</a>
+        </div>
+
+        <div class="nav-pack active">
+
+            <img class="nav-img" src="media/icons/navigation/search-active.png">
+
+            <p class="active">Search</p>
+
+        </div>
+
+        <div class="nav-pack">
+<a class="nav-links" href="profile.html">
+            <img class="nav-img" src="media/icons/navigation/me.png">
+            <p class="static">My Netflix</p>
+</a>
+        </div>
+
+    </div>
+	
+</nav>
+
+
+
+<h2 id="section-heading">Recommended series &amp; films</h2>
+
+<!-- Default state: a fetched list of recommended titles, list-row style -->
+<section class="row" id="recommended-list">
+</section>
+
+<!-- Search state: poster grid of results closest to the typed query -->
+<section class="results-grid hidden" id="search-results">
+</section>
+
+
+<!-- ==========================================================
+     MODAL (same system used on the home page)
+========================================================== -->
+<div id="modal" class="modal hidden">
+    <div class="modal-backdrop" id="closeBackdrop"></div>
+
+    <div class="modal-content expanded-modal">
+
+<div id="modal-main-view">
+<div class="modal-video-container">
+
+    <img id="modal-backdrop" class="modal-hero">
+
+    <div class="trailer-frame hidden" id="trailer-frame">
+        <div id="modal-trailer" class="modal-video"></div>
+        <div class="trailer-shield" id="trailer-shield"></div>
+        <div class="custom-trailer-controls" id="trailer-controls">
+            <button class="ctrl-btn" id="trailer-back10" aria-label="Back 10 seconds">
+                <img src="media/icons/trailer/rewind.png" alt="">
+
+            </button>
+            <button class="ctrl-btn ctrl-play" id="trailer-playpause" aria-label="Pause">
+                <img id="trailer-playpause-icon" src="media/icons/trailer/pause.png" alt="">
+            </button>
+            <button class="ctrl-btn" id="trailer-fwd10" aria-label="Forward 10 seconds">
+                <img src="media/icons/trailer/fast-forward.png" alt="">
+
+            </button>
+        </div>
+    </div>
+
+            <div class="top-controls">
+                <button id="captions-btn" class="circle-btn cc-btn" aria-label="Turn captions on" aria-pressed="false"><img data-icon-dir="trailer" data-icon-name="captions" alt=""></button>
+                <button id="closeModal" class="circle-btn close-btn"><img src="media/icons/trailer/close.png" alt="Close"></button>
+            </div>
+
+    <div class="bottom-controls">
+        <p class="subtitle-preview"></p>
+        <div class="circle-btn mute-btn" id="trailer-mute-btn" aria-label="Unmute"><img src="media/icons/trailer/volume-off.png" alt=""></div>
+    </div>
+
+    <div class="video-gradient"></div>
+
+</div>
+
+        <div class="modal-details">
+            <h2 id="modal-title" class="netflix-title">Movie Title</h2>
+
+            <div class="modal-meta">
+                <span id="modal-year" class="meta-year">2024</span>
+                <span id="modal-age" class="age-badge">18+</span>
+                <span id="modal-duration">2h 6m</span>
+            </div>
+
+            <p id="modal-release-info" class="release-info hidden"></p>
+
+<div class="most-liked">
+    <span id="modal-match">--% Match</span>
+</div>
+            <div class="modal-action-row">
+                <button class="btn-list" id="modal-mylist-action">
+                    <img src="media/icons/trailer/actions/add-off.png" alt="">
+                    <span id="modal-mylist-label">Add to List</span>
+                </button>
+                <button class="btn-rate" id="modal-rate-action">
+                    <img src="media/icons/trailer/actions/like-off.png" alt="">
+                    <span id="modal-rate-label">Rate</span>
+                </button>
+                <button class="btn-share" id="modal-share-action" aria-label="Share">
+                    <img src="media/icons/trailer/actions/send-off.png" alt="">
+                </button>
+            </div>
+
+            <p id="modal-desc" class="modal-synopsis"></p>
+
+            <div class="modal-credits">
+                <p><span class="credit-label" id="modal-director-label">Director:</span> <span id="modal-director">—</span></p>
+                <p><span class="credit-label">Cast:</span> <span id="modal-cast">—</span> <span class="more-text" id="modal-more-btn">more</span></p>
+                <p><span class="credit-label">Genres:</span> <span id="modal-genres">—</span></p>
+            </div>
+
+            <div class="modal-tabs">
+                <div class="tab active">More Like This</div>
+                <div class="tab">Trailers & More</div>
+                <div class="tab">Where to Watch</div>
+                <div class="tab hidden-tab" id="tab-seasons">Seasons</div>
+            </div>
+
+            <div class="tab-content" id="tab-content-more">
+                <div class="more-like-grid" id="more-like-grid"></div>
+            </div>
+
+            <div class="tab-content hidden" id="tab-content-trailers">
+                <div class="trailer-list" id="trailer-list"></div>
+            </div>
+
+            <div class="tab-content hidden" id="tab-content-watch">
+                <div id="watch-providers"></div>
+            </div>
+
+            <div class="tab-content hidden" id="tab-content-seasons">
+                <div class="season-list" id="season-list"></div>
+            </div>
+        </div>
+</div>
+
+<!-- Full cast/director/age-rating/genres page, opened via "more" -->
+<div id="modal-info-view" class="modal-subview hidden">
+    <div class="subview-header">
+        <button class="subview-back" id="info-back-btn" aria-label="Back">‹</button>
+        <h2 class="subview-title" id="info-view-title"></h2>
+        <div class="subview-actions">
+            <button class="circle-btn" id="info-close-btn" aria-label="Close">✕</button>
+        </div>
+    </div>
+    <div class="subview-body" id="info-view-body"></div>
+</div>
+
+<!-- Filmography page for a clicked cast member, director, or genre -->
+<div id="modal-person-view" class="modal-subview hidden">
+    <div class="subview-header">
+        <button class="subview-back" id="person-back-btn" aria-label="Back">‹</button>
+        <h2 class="subview-title" id="person-view-title"></h2>
+        <div class="subview-actions">
+            <button class="circle-btn" id="person-close-btn" aria-label="Close">✕</button>
+        </div>
+    </div>
+    <div class="subview-body">
+        <div class="more-like-grid" id="person-view-grid"></div>
+    </div>
+</div>
+
+    </div>
+</div>
+
+<script src="state.js"></script>
+<script src="profiles.js"></script>
+<script src="search.js"></script>
+<script src="icons.js"></script>
+<script src="people.js"></script>
+<script src="reviews.js"></script>
+<script src="nav.js"></script>
+<script src="watch.js"></script>
+<script src="captions.js"></script>
+<script src="notifications.js"></script>
+<script src="taste.js"></script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!Doctype html>
+<html>
+<head>
+<meta charset = utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Notflix</title>
+<link rel="stylesheet" type="text/css" href="css/header.css">
+<link rel="stylesheet" type="text/css" href="css/general.css">
+<link rel="stylesheet" type="text/css" href="css/nav.css">
+<link rel="stylesheet" type="text/css" href="css/pack.css">
+<link rel="stylesheet" type="text/css" href="css/modal.css">
+
+
+</head>
+<body>
+
+<div id="ambient-glow"></div>
+
+<header class="header" id="header">
+    <div id="header-top">
+
+<div class="header-top-left">
+<img class="net-logo" src="media/assets/n-red.png">
+        <p class="foryou">Home</p>
+</div>
+
+        <div id="header-top-right">
+                                    <img id="header-icon-img" src="media/icons/header/notifications.png">
+        </div>
+</div>
+
+<div class="sub-head">
+        <button id="header-button1">Shows</button>
+        <button id="header-button2">Movies</button>
+<a href="news.html">
+        <button id="header-button3">New & Hot</button>
+</a>
+        <button id="header-button4">Categories<img src="media/icons/header/chev-down.png"></button>
+</div>
+</header>
+
+<div id="categories-dropdown" class="categories-dropdown hidden">
+    <div class="categories-list" id="categories-list"></div>
+</div>
+
+<nav id="navbar">
+	<div class="nav-main">
+
+        <div class="nav-pack active">
+            <img class="nav-img" src="media/icons/navigation/home-active.png">
+            <p class="active">Home</p>
+        </div>
+
+        <div class="nav-pack">
+<a class="nav-links" href="search.html">
+            <img class="nav-img" src="media/icons/navigation/search.png">
+
+            <p class="static">Search</p>
+</a>
+        </div>
+
+        <div class="nav-pack">
+<a class="nav-links" href="profile.html">
+            <img class="nav-img" src="media/icons/navigation/me.png">
+            <p class="static">My Netflix</p>
+</a>
+        </div>
+
+
+	</div>
+
+</nav>
+
+
+
+<main>
+<section class="big-section">
+
+<div class="big-content">
+
+    <img class="big-preview">
+
+    <div class="hero-overlay">
+
+        <div class="series-info">
+        </div>
+
+        <img class="big-title">
+
+        <p class="hero-desc">
+
+        </p>
+
+        <div class="hero-buttons">
+            <button class="play-btn"><img class="add-img" src="media/icons/body/play.png"> Play</button>
+            <button class="add-btn"><img class="add-img" src="media/icons/body/add.png"> My List</button>
+        </div>
+
+    </div>
+
+</div>
+</section>
+
+
+<div id="rows-container"></div>
+
+<div id="modal" class="modal hidden">
+    <div class="modal-backdrop" id="closeBackdrop"></div>
+
+    <div class="modal-content expanded-modal">
+
+<div id="modal-main-view">
+<div class="modal-video-container">
+
+    <img id="modal-backdrop" class="modal-hero">
+
+    <div class="trailer-frame hidden" id="trailer-frame">
+        <div id="modal-trailer" class="modal-video"></div>
+        <div class="trailer-shield" id="trailer-shield"></div>
+        <div class="custom-trailer-controls" id="trailer-controls">
+            <button class="ctrl-btn" id="trailer-back10" aria-label="Back 10 seconds">
+                <img src="media/icons/trailer/rewind.png" alt="">
+
+            </button>
+            <button class="ctrl-btn ctrl-play" id="trailer-playpause" aria-label="Pause">
+                <img id="trailer-playpause-icon" src="media/icons/trailer/pause.png" alt="">
+            </button>
+            <button class="ctrl-btn" id="trailer-fwd10" aria-label="Forward 10 seconds">
+                <img src="media/icons/trailer/fast-forward.png" alt="">
+
+            </button>
+        </div>
+    </div>
+
+            <div class="top-controls">
+                <button id="captions-btn" class="circle-btn cc-btn" aria-label="Turn captions on" aria-pressed="false"><img data-icon-dir="trailer" data-icon-name="captions" alt=""></button>
+                <button id="closeModal" class="circle-btn close-btn"><img src="media/icons/trailer/close.png" alt="Close"></button>
+            </div>
+
+    <div class="bottom-controls">
+        <p class="subtitle-preview"></p>
+        <div class="circle-btn mute-btn" id="trailer-mute-btn" aria-label="Unmute"><img src="media/icons/trailer/volume-off.png" alt=""></div>
+    </div>
+
+    <div class="video-gradient"></div>
+
+</div>
+
+        <div class="modal-details">
+            <h2 id="modal-title" class="netflix-title">Movie Title</h2>
+
+            <div class="modal-meta">
+                <span id="modal-year" class="meta-year">2024</span>
+                <span id="modal-age" class="age-badge">18+</span>
+                <span id="modal-duration">2h 6m</span>
+            </div>
+
+            <p id="modal-release-info" class="release-info hidden"></p>
+
+<div class="most-liked">
+    <span id="modal-match">--% Match</span>
+</div>
+            <div class="modal-action-row">
+                <button class="btn-list" id="modal-mylist-action">
+                    <img src="media/icons/trailer/actions/add-off.png" alt="">
+                    <span id="modal-mylist-label">Add to List</span>
+                </button>
+                <button class="btn-rate" id="modal-rate-action">
+                    <img src="media/icons/trailer/actions/like-off.png" alt="">
+                    <span id="modal-rate-label">Rate</span>
+                </button>
+                <button class="btn-share" id="modal-share-action" aria-label="Share">
+                    <img src="media/icons/trailer/actions/send-off.png" alt="">
+                </button>
+            </div>
+
+            <p id="modal-desc" class="modal-synopsis"></p>
+
+            <div class="modal-credits">
+                <p><span class="credit-label" id="modal-director-label">Director:</span> <span id="modal-director">Placeholder Director</span></p>
+                <p><span class="credit-label">Cast:</span> <span id="modal-cast">Placeholder Actor 1, Placeholder Actor 2</span> <span class="more-text" id="modal-more-btn">more</span></p>
+                <p><span class="credit-label">Genres:</span> <span id="modal-genres">Action & Adventure Movies, Sci-Fi Movies</span></p>
+            </div>
+
+            <div class="modal-tabs">
+                <div class="tab active">More Like This</div>
+                <div class="tab">Trailers & More</div>
+                <div class="tab">Where to Watch</div>
+                <div class="tab hidden-tab" id="tab-seasons">Seasons</div>
+            </div>
+
+            <div class="tab-content" id="tab-content-more">
+                <div class="more-like-grid" id="more-like-grid"></div>
+            </div>
+
+            <div class="tab-content hidden" id="tab-content-trailers">
+                <div class="trailer-list" id="trailer-list"></div>
+            </div>
+
+            <div class="tab-content hidden" id="tab-content-watch">
+                <div id="watch-providers"></div>
+            </div>
+
+            <div class="tab-content hidden" id="tab-content-seasons">
+                <div class="season-list" id="season-list"></div>
+            </div>
+        </div>
+</div>
+
+<!-- Full cast/director/age-rating/genres page, opened via "more" -->
+<div id="modal-info-view" class="modal-subview hidden">
+    <div class="subview-header">
+        <button class="subview-back" id="info-back-btn" aria-label="Back">‹</button>
+        <h2 class="subview-title" id="info-view-title"></h2>
+        <div class="subview-actions">
+            <button class="circle-btn" id="info-close-btn" aria-label="Close"></button>
+        </div>
+    </div>
+    <div class="subview-body" id="info-view-body"></div>
+</div>
+
+<!-- Filmography page for a clicked cast member, director, or genre -->
+<div id="modal-person-view" class="modal-subview hidden">
+    <div class="subview-header">
+        <button class="subview-back" id="person-back-btn" aria-label="Back">‹</button>
+        <h2 class="subview-title" id="person-view-title"></h2>
+        <div class="subview-actions">
+            <button class="circle-btn" id="person-close-btn" aria-label="Close">✕</button>
+        </div>
+    </div>
+    <div class="subview-body">
+        <div class="more-like-grid" id="person-view-grid"></div>
+    </div>
+</div>
+
+    </div>
+</div>
+
+<!-- Full-screen category browser, opened from the Categories dropdown
+     AND from the "Shows" button (see openShowsBrowser in mvdata.js) -->
+<div id="category-view" class="fullscreen-view hidden">
+    <div class="subview-header">
+        <button class="subview-back" id="category-close-btn" aria-label="Close">‹</button>
+        <h2 class="subview-title" id="category-view-title"></h2>
+        <div class="subview-actions">
+        </div>
+    </div>
+    <div class="subview-body" id="category-view-body"></div>
+</div>
+
+</main>
+
+
+
+<script src="state.js"></script>
+<script src="profiles.js"></script>
+<script src="index.js"></script>
+<script src="mvdata.js"></script>
+<script src="icons.js"></script>
+<script src="people.js"></script>
+<script src="reviews.js"></script>
+<script src="nav.js"></script>
+<script src="watch.js"></script>
+<script src="captions.js"></script>
+<script src="notifications.js"></script>
+<script src="taste.js"></script>
+<script src="miniplayer.js"></script>
+</body>
+
+</html>
