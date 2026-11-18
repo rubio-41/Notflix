@@ -10,14 +10,11 @@ const DB_FILE = path.join(DATA_DIR, 'db.json');
 const STATIC = new Set(['index.html', 'chat.html', 'styles.css', 'signup.js', 'app.js']);
 
 // ---------- storage (one JSON file; fine for a small group) ----------
-let db = { users: {}, rooms: {}, messages: [], reports: [] };
+let db = { users: {}, rooms: {}, messages: [], reports: [], friends: {}, nicknames: {} };
 try { db = Object.assign(db, JSON.parse(fs.readFileSync(DB_FILE, 'utf8'))); } catch (e) {}
 const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-if (!Object.keys(db.rooms).length) {
-  [['Gaming', 'Anyone down for a game'], ['General', 'Open conversation'], ['Sports', 'Sports related']].forEach(([name, desc]) => {
-    const id = 'r_' + slug(name); db.rooms[id] = { id, name, desc, createdBy: null };
-  });
-}
+// Public conversations are created by users. Remove the built-in ones from earlier versions.
+Object.values(db.rooms).forEach(r => { if (r.createdBy === null) { delete db.rooms[r.id]; db.messages = db.messages.filter(m => m.room !== r.id); } });
 let saveTimer = null;
 function save() {
   clearTimeout(saveTimer);
@@ -35,7 +32,7 @@ const isOnline = id => clients.has(id) && clients.get(id).size > 0;
 function emit(res, event, data) { res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n'); }
 function toUser(id, event, data) { (clients.get(id) || []).forEach(r => emit(r, event, data)); }
 function toAll(event, data) { clients.forEach(set => set.forEach(r => emit(r, event, data))); }
-const pub = u => ({ id: u.id, username: u.username, displayName: u.displayName, status: u.status, photo: u.photo ? u.photoVer : 0, online: isOnline(u.id) });
+const pub = u => ({ id: u.id, username: u.username, displayName: u.displayName, status: u.status, discoverable: u.discoverable !== false, photo: u.photo ? u.photoVer : 0, online: isOnline(u.id) });
 
 // ---------- helpers ----------
 const STATUSES = ['Available', 'Looking for a conversation'];
@@ -51,6 +48,19 @@ function authUser(req, url) {
   if (!t) return null; const h = hash(t);
   return Object.values(db.users).find(u => u.tokenHash === h) || null;
 }
+// ---------- friends: a request, accepted by the other person; nicknames are private to the one who sets them ----------
+const pairKey = (x, y) => [x, y].sort().join('|');
+function friendsFor(id) {
+  const out = [];
+  Object.values(db.friends).forEach(f => {
+    if (f.a !== id && f.b !== id) return;
+    const other = f.a === id ? f.b : f.a;
+    out.push({ id: other, status: f.status === 'accepted' ? 'friend' : (f.a === id ? 'outgoing' : 'incoming'), nickname: db.nicknames[id + ':' + other] || '' });
+  });
+  return out;
+}
+const pushFriends = (...ids) => ids.forEach(i => toUser(i, 'friends', friendsFor(i)));
+
 function partnersOf(id) {
   const s = new Set();
   db.messages.forEach(m => { if (m.to === id) s.add(m.from); else if (m.from === id && m.to) s.add(m.to); });
@@ -97,7 +107,7 @@ async function api(req, res, url) {
       const wasOnline = isOnline(me.id);
       if (!clients.has(me.id)) clients.set(me.id, new Set());
       clients.get(me.id).add(res);
-      emit(res, 'init', { me: pub(me), users: Object.values(db.users).map(pub), rooms: Object.values(db.rooms), recent: partnersOf(me.id) });
+      emit(res, 'init', { me: pub(me), users: Object.values(db.users).map(pub), rooms: Object.values(db.rooms), recent: partnersOf(me.id), friends: friendsFor(me.id) });
       if (!wasOnline) {
         toAll('presence', { id: me.id, online: true });
         // anything sent to me while I was away is now delivered
@@ -122,7 +132,11 @@ async function api(req, res, url) {
       const b = await body(req), text = String(b.text || '').trim();
       if (!text || text.length > 2000) return json(res, 400, { error: 'Message must be 1–2000 characters.' });
       const m = { id: rid(8), from: me.id, ts: Date.now(), text };
-      if (b.room) { if (!db.rooms[b.room]) return json(res, 404, { error: 'No such conversation.' }); m.room = b.room; }
+      if (b.room) {
+        const rm = db.rooms[b.room]; if (!rm) return json(res, 404, { error: 'No such conversation.' });
+        m.room = b.room; rm.members = rm.members || [];
+        if (!rm.members.includes(me.id)) { rm.members.push(me.id); toAll('room', rm); }
+      }
       else { if (!db.users[b.to] || b.to === me.id) return json(res, 404, { error: 'No such person.' }); m.to = b.to; m.status = isOnline(b.to) ? 'delivered' : 'sent'; }
       db.messages.push(m); save();
       if (m.room) toAll('message', m); else { toUser(m.to, 'message', m); toUser(me.id, 'message', m); }
@@ -133,8 +147,38 @@ async function api(req, res, url) {
       const b = await body(req), name = String(b.name || '').trim(), desc = String(b.desc || '').trim().slice(0, 60);
       if (name.length < 2 || name.length > 24) return json(res, 400, { error: 'Name must be 2–24 characters.' });
       if (Object.values(db.rooms).some(r => r.name.toLowerCase() === name.toLowerCase())) return json(res, 409, { error: 'That conversation already exists.' });
-      const id = 'r_' + slug(name) + '_' + rid(2), room = db.rooms[id] = { id, name, desc: desc || 'Open conversation', createdBy: me.id };
+      const id = 'r_' + slug(name) + '_' + rid(2), room = db.rooms[id] = { id, name, desc: desc || 'Open conversation', createdBy: me.id, members: [me.id] };
       save(); toAll('room', room); return json(res, 200, room);
+    }
+
+    if (route === 'POST /api/rooms/join') {
+      const b = await body(req), rm = db.rooms[b.room]; if (!rm) return json(res, 404, { error: 'No such conversation.' });
+      rm.members = rm.members || []; if (!rm.members.includes(me.id)) { rm.members.push(me.id); save(); toAll('room', rm); }
+      return json(res, 200, rm);
+    }
+
+    if (route === 'POST /api/privacy') {
+      const b = await body(req); me.discoverable = b.discoverable !== false; save(); toAll('user', pub(me)); return json(res, 200, pub(me));
+    }
+
+    if (route.startsWith('POST /api/friends/')) {
+      const b = await body(req), other = db.users[b.userId];
+      if (!other || other.id === me.id) return json(res, 404, { error: 'No such person.' });
+      const k = pairKey(me.id, other.id), f = db.friends[k], action = url.pathname.split('/').pop();
+      if (action === 'request') {
+        if (!f) db.friends[k] = { a: me.id, b: other.id, status: 'pending', ts: Date.now() };
+        else if (f.status === 'pending' && f.b === me.id) f.status = 'accepted';   // they had already asked: accept
+      } else if (action === 'respond') {
+        if (!f || f.status !== 'pending' || f.b !== me.id) return json(res, 400, { error: 'No request to answer.' });
+        if (b.accept) f.status = 'accepted'; else delete db.friends[k];
+      } else if (action === 'remove') {
+        delete db.friends[k]; delete db.nicknames[me.id + ':' + other.id]; delete db.nicknames[other.id + ':' + me.id];
+      } else if (action === 'nickname') {
+        if (!f || f.status !== 'accepted') return json(res, 400, { error: 'Only friends can be given a name.' });
+        const n = String(b.name || '').trim().slice(0, 30), nk = me.id + ':' + other.id;
+        if (n) db.nicknames[nk] = n; else delete db.nicknames[nk];
+      } else return json(res, 404, { error: 'Not found.' });
+      save(); pushFriends(me.id, other.id); return json(res, 200, { ok: true });
     }
 
     if (route === 'POST /api/report') {

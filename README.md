@@ -1,12 +1,13 @@
 # Proximity Messenger — working model (Phase 1)
 
 People create a profile (username, display name, optional picture). Everyone who has the page open
-appears in **Around You**; message them or join public conversations (Gaming, General, Sports, or
-create your own). Everything updates live on every device.
+appears in **Around You**; message them or join public conversations (there are none at first — people create them). Everything updates live on every device.
 
 ## Files (all in one folder, no sub-folders)
 
     server.js  package.json  index.html  chat.html  styles.css  signup.js  app.js
+
+Friends: open someone's profile (tap their picture in a list, or their pin on the map), add them as a friend, and once they accept you can give them your own name. Friends stay in your Friends list and you can chat whether or not they are nearby.
 
 ## Run on a computer
 
@@ -23,5 +24,6 @@ Free tiers usually sleep when idle and may reset saved data on restart; set `DAT
 
 - A normal client–server app. NOT Bluetooth/Wi-Fi peer-to-peer; it needs a connection to the server.
 - "Around You" = online right now. No real distance yet; the map layout is illustrative.
-- No voice, video, attachments, blocking. "Report" saves a report in data/db.json.
+- No voice, video, attachments, blocking (the Voice button in the mini bar is a placeholder). "Show me in Around You" in Profile hides you from others' list and map, but is not a security feature yet.
+- "Report" saves a report in data/db.json.
 - No passwords: your device keeps a secret token. Clearing site data loses that username.

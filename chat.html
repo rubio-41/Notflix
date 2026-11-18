@@ -8,27 +8,25 @@
 </head>
 <body>
 <div class="loading" id="loading">Loading…</div>
+<div class="toast" id="toast" hidden></div>
 <div class="app" id="app">
   <aside class="side">
     <div class="side-head">
-      <button class="pill" id="profileBtn" aria-label="Your profile and status" aria-haspopup="true"><span class="av" id="meAv">?</span><span class="dots">•••</span></button>
+      <button class="pill" id="profileBtn" aria-label="Profile and privacy"><span class="av" id="meAv">?</span><span class="dots">•••</span></button>
       <h2><button id="home">Chats</button></h2><span></span>
     </div>
-    <div class="menu" id="menu" hidden>
-      <div class="who" id="menuWho"></div>
-      <button data-status="Available"><i class="dot"></i>Available</button>
-      <button data-status="Looking for a conversation"><i class="dot" style="--c:var(--blue)"></i>Looking for a conversation</button>
-      <hr><button id="signout">Sign out</button>
-    </div>
+    <div class="tabs side-only" data-tabs></div>
     <div class="side-scroll">
       <section class="card" id="cardPeople"><h3>Around You</h3><div id="people"></div><button class="more" id="morePeople">More…</button></section>
+      <section class="card" id="cardFriends" hidden><h3>Friends</h3><div id="friends"></div></section>
       <section class="card" id="cardRooms"><h3>Public Conversations</h3><div id="rooms"></div><div id="newRoomBox"></div><button class="more" id="moreRooms">More…</button></section>
     </div>
   </aside>
 
   <main class="main">
+    <div class="tabs" data-tabs></div>
     <div class="conn" id="conn" hidden>Reconnecting…</div>
-    <button class="ibtn mob back" id="mback" style="position:absolute;z-index:5;left:1.6em;top:1.6em" aria-label="Back to chats"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <button class="ibtn mob back" id="mback" style="position:absolute;z-index:13;left:1.6em;top:2.7em" aria-label="Back to chats"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
 
     <div class="view on" id="v-map">
       <div class="map">
@@ -36,10 +34,6 @@
           <g fill="none" stroke="#1f1f21" stroke-width="2"><path d="M0 120H800M0 250H800M0 400H800M0 500H800M120 0V560M260 0V560M520 0V560M680 0V560"/></g>
           <g fill="none" stroke="#2c2c2f" stroke-width="14" stroke-linecap="round"><path d="M-20 470L330 200L560 -20"/><path d="M110 590L300 330L820 120"/><path d="M-20 300H820"/><path d="M430 -20V580"/><path d="M600 580L820 330"/></g>
         </svg>
-        <div class="tabs" role="group" aria-label="Views">
-          <button id="tabMap" aria-pressed="true" aria-label="Map"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></button>
-          <button id="tabChats" aria-pressed="false" aria-label="Conversations"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg></button>
-        </div>
         <button class="chip" id="showList">Show as list</button>
         <div class="me-dot" aria-label="You"></div>
         <div id="pins"></div>
@@ -65,6 +59,18 @@
         <button type="button" class="ibtn" disabled title="Attachments come later" aria-label="Add attachment"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
         <div class="compose-field"><input id="text" placeholder="Message" aria-label="Message" maxlength="2000"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10v4M9 7v10M13 9v6M17 6v12M21 10v4"/></svg></div>
       </form>
+    </div>
+
+    <div class="view" id="v-profile"><div class="formcard settings" id="profileBox"></div></div>
+
+    <div class="view" id="v-me">
+      <div class="formcard settings">
+        <div class="pic"><div class="av" id="sAv"></div><div><h3 id="sName"></h3><small id="sUser"></small></div></div>
+        <div><div class="lbl">Status</div>
+          <div class="seg" id="seg"><button data-status="Available">Available</button><button data-status="Looking for a conversation">Looking for a conversation</button></div></div>
+        <label class="switch"><span>Show me in Around You<small>When off, other people don’t see you on the list or the map.</small></span><input type="checkbox" id="disc" role="switch"></label>
+        <button class="go" id="signout">Sign out</button>
+      </div>
     </div>
   </main>
 </div>
