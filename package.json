@@ -1,0 +1,8 @@
+{
+  "name": "proximity-messenger",
+  "version": "0.1.0",
+  "description": "Proximity messenger — Phase 1: shared server for profiles, presence and chat",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Create your profile</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app signup">
+  <main class="main plain">
+    <form class="formcard" id="form" novalidate>
+      <p class="srverr" id="srvErr" role="alert" hidden></p>
+      <h1>Discover people around you.</h1>
+      <p class="lead">Start conversations and communicate locally. Pick a username to get started — no phone number or email needed.</p>
+      <div class="pic">
+        <div class="av" id="preview">?</div>
+        <div>
+          <label class="btn" for="photo"><input id="photo" type="file" accept="image/*"><span>Add profile picture</span></label>
+          <small>Optional. You can add one later.</small>
+        </div>
+      </div>
+      <div class="field" id="fUser"><label for="username">Username</label>
+        <input id="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" placeholder="jay_nearby">
+        <div class="hint" id="uHint"></div></div>
+      <div class="field" id="fName"><label for="display">Display name</label>
+        <input id="display" autocomplete="nickname" maxlength="30" placeholder="Jay">
+        <div class="hint" id="dHint"></div></div>
+      <!-- Future: password field, tied to the username. -->
+      <button class="go" type="submit">Create profile</button>
+      <p class="fine">Nearby people only see your display name and picture.</p>
+    </form>
+  </main>
+</div>
+<script>
+// Already signed in on this device? Go straight to the chats.
+(function(){try{var t=localStorage.getItem('token');if(!t)return;
+fetch('/api/me',{headers:{Authorization:'Bearer '+t}}).then(function(r){if(r.ok)location.replace('chat.html');else localStorage.removeItem('token')})}catch(e){}})();
+</script>
+<script src="signup.js"></script>
+</body>
+</html>
