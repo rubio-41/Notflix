@@ -94,6 +94,8 @@ async function api(req, res, url) {
   const route = req.method + ' ' + url.pathname;
   try {
     if (route === 'GET /api/health') return json(res, 200, { ok: true });
+    // Public map settings. The CARTO key is read from the CARTO_API_KEY environment variable, never stored in the code.
+    if (route === 'GET /api/config') return json(res, 200, { cartoKey: process.env.CARTO_API_KEY || '' });
 
     if (route === 'POST /api/signup') {
       const b = await body(req);

@@ -152,11 +152,19 @@
   }
 
   // ---------- map (Leaflet + dark tiles; positions come from the server, rounded) ----------
-  var map = null, markers = {}, meMarker = null, centred = false;
+  var map = null, markers = {}, meMarker = null, centred = false, cfg = null;
+  fetch('/api/config').then(function (r) { return r.json(); }).catch(function () { return {}; }).then(function (c) { cfg = c; renderMap(); });
   function ensureMap() {
-    if (map || !window.L) return;
+    if (map) return true;
+    if (!window.L || !cfg) return false;
     map = L.map('mapEl', { zoomControl: false, attributionControl: true }).setView([20, 0], 2);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19, attribution: '© OpenStreetMap contributors © CARTO' }).addTo(map);
+    if (cfg.cartoKey) {           // CARTO Dark Matter (needs a free API key — see README)
+      L.tileLayer('https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key=' + encodeURIComponent(cfg.cartoKey), { maxZoom: 19, detectRetina: true, attribution: '© OpenStreetMap contributors © CARTO' }).addTo(map);
+    } else {                      // no key set: OpenStreetMap tiles, darkened with CSS
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
+      $('mapEl').classList.add('dark-osm');
+    }
+    return true;
   }
   function pinIcon(u) {
     var p = el('div', 'pin'), a = el('span', 'av'); avatar(a, u); p.appendChild(a);
@@ -166,8 +174,8 @@
   function renderMap() {
     var msg = $('mapMsg');
     if (!window.L) { $('mapMsgText').textContent = 'The map could not load. Check your internet connection.'; $('mapMsgBtn').hidden = true; msg.hidden = false; return; }
-    if (view !== 'map') return;
-    ensureMap(); map.invalidateSize();
+    if (view !== 'map' || !ensureMap()) return;
+    map.invalidateSize();
     if (myPos) {
       var ll = [myPos.lat, myPos.lng];
       if (!meMarker) meMarker = L.marker(ll, { icon: L.divIcon({ className: '', html: el('div', 'medot'), iconSize: [0, 0] }), interactive: false, zIndexOffset: 1000 }).addTo(map); else meMarker.setLatLng(ll);

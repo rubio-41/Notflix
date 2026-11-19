@@ -16,7 +16,19 @@ the page is open; the server keeps it in memory only (never saved) and tells eac
 500 m (change with `NEARBY_RADIUS_M=200 node server.js`). Other people only get positions rounded to about
 11 m. Phones and browsers only share location on HTTPS (or localhost), so use an https:// address. If nobody
 has shared a location (for example testing over plain http), everyone online is shown so you can still test.
-The map tiles come from CARTO/OpenStreetMap and the map library from cdnjs, so the map needs internet.
+The map needs internet (map library from cdnjs, tiles from the web).
+
+### Map tiles and the CARTO API key
+
+CARTO now requires a free API key for its dark map tiles (get one in a minute, no account, at
+https://carto.com/basemaps/apikey — free up to 5M tile requests/month non-commercial, 1M commercial).
+Do NOT put the key in the code. Set it as an environment variable named `CARTO_API_KEY`:
+
+- On Render: your service → Environment → Add Environment Variable → `CARTO_API_KEY` = your key → Save (it redeploys).
+- On a computer:  `CARTO_API_KEY=your_key node server.js`
+
+In CARTO's key settings, restrict the key to your site's address (the key is visible to the browser).
+With no key set, the map falls back to OpenStreetMap tiles darkened with CSS.
 
 ## Run on a computer
 

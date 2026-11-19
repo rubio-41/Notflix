@@ -82,6 +82,7 @@ input{outline:0}
 /* Map */
 #mapEl{position:absolute;inset:0;z-index:0;isolation:isolate;background:#131314}
 #mapEl.leaflet-container{font:inherit;font-size:var(--e)}
+.dark-osm .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.5)}
 .leaflet-control-attribution{background:rgba(0,0,0,.6)!important;color:#8e8e93!important;font-size:10px!important}
 .leaflet-control-attribution a{color:#a8a8ad!important}
 .pin{position:absolute;left:0;top:0;transform:translate(-50%,-50%);border-radius:50%;padding:.3em;border:.35em solid var(--c,var(--green));background:#131314;cursor:pointer}
