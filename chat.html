@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Chats</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,13 +13,13 @@
 <div class="app" id="app">
   <aside class="side">
     <div class="side-head">
-      <button class="pill" id="profileBtn" aria-label="Profile and privacy"><span class="av" id="meAv">?</span><span class="dots">•••</span></button>
+      <button class="pill" id="profileBtn" aria-label="Your profile"><span class="av" id="meAv">?</span><span class="dots">•••</span></button>
       <h2><button id="home">Chats</button></h2><span></span>
     </div>
     <div class="tabs side-only" data-tabs></div>
     <div class="side-scroll">
-      <section class="card" id="cardPeople"><h3>Around You</h3><div id="people"></div><button class="more" id="morePeople">More…</button></section>
       <section class="card" id="cardFriends" hidden><h3>Friends</h3><div id="friends"></div></section>
+      <section class="card" id="cardPeople"><h3>Around You</h3><div id="people"></div><button class="more" id="morePeople">More…</button></section>
       <section class="card" id="cardRooms"><h3>Public Conversations</h3><div id="rooms"></div><div id="newRoomBox"></div><button class="more" id="moreRooms">More…</button></section>
     </div>
   </aside>
@@ -26,21 +27,16 @@
   <main class="main">
     <div class="tabs" data-tabs></div>
     <div class="conn" id="conn" hidden>Reconnecting…</div>
-    <button class="ibtn mob back" id="mback" style="position:absolute;z-index:13;left:1.6em;top:2.7em" aria-label="Back to chats"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <button class="ibtn mob" id="mback" style="position:absolute;z-index:1200;left:1.6em;top:2.7em" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
 
+    <!-- Map -->
     <div class="view on" id="v-map">
-      <div class="map">
-        <svg class="roads" viewBox="0 0 800 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <g fill="none" stroke="#1f1f21" stroke-width="2"><path d="M0 120H800M0 250H800M0 400H800M0 500H800M120 0V560M260 0V560M520 0V560M680 0V560"/></g>
-          <g fill="none" stroke="#2c2c2f" stroke-width="14" stroke-linecap="round"><path d="M-20 470L330 200L560 -20"/><path d="M110 590L300 330L820 120"/><path d="M-20 300H820"/><path d="M430 -20V580"/><path d="M600 580L820 330"/></g>
-        </svg>
-        <button class="chip" id="showList">Show as list</button>
-        <div class="me-dot" aria-label="You"></div>
-        <div id="pins"></div>
-        <div class="legend"><span><i style="--c:var(--green)"></i>Available</span><span><i style="--c:var(--blue)"></i>Looking to chat</span><span style="color:#8e8e93">Layout is illustrative — real proximity comes later</span></div>
-      </div>
+      <div id="mapEl"></div>
+      <div class="mapmsg" id="mapMsg" hidden><p id="mapMsgText"></p><button id="mapMsgBtn">Turn on location</button></div>
+      <button class="ibtn locate" id="locate" aria-label="Centre on me"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg></button>
     </div>
 
+    <!-- Chats list / empty state -->
     <div class="view" id="v-empty">
       <div class="empty" id="emptyCard">
         <svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-width="2.4"/></svg>
@@ -48,9 +44,10 @@
       </div>
     </div>
 
+    <!-- A conversation -->
     <div class="view" id="v-chat">
       <div class="chead">
-        <button class="ibtn compose" id="newMsg" aria-label="Find someone new"><svg viewBox="0 0 24 24"><path d="M12 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-6"/><path d="M17.5 3.5l3 3L12 15l-4 1 1-4z"/></svg></button>
+        <button class="ibtn compose" id="newMsg" aria-label="New message"><svg viewBox="0 0 24 24"><path d="M12 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-6"/><path d="M17.5 3.5l3 3L12 15l-4 1 1-4z"/></svg></button>
         <div class="contact"><div class="av" id="cAv"></div><div class="cname" id="cName"></div><div class="csub" id="cSub"></div></div>
         <button class="ibtn vid" disabled title="Voice and video come in a later phase" aria-label="Video (coming later)"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3"/></svg></button>
       </div>
@@ -61,19 +58,31 @@
       </form>
     </div>
 
-    <div class="view" id="v-profile"><div class="formcard settings" id="profileBox"></div></div>
+    <!-- New message -->
+    <div class="view scroll" id="v-new">
+      <div class="panel">
+        <h3>New message</h3>
+        <input class="pillin" id="newSearch" placeholder="Search" aria-label="Search people" autocomplete="off">
+        <div id="newList"></div>
+      </div>
+    </div>
 
-    <div class="view" id="v-me">
-      <div class="formcard settings">
-        <div class="pic"><div class="av" id="sAv"></div><div><h3 id="sName"></h3><small id="sUser"></small></div></div>
-        <div><div class="lbl">Status</div>
-          <div class="seg" id="seg"><button data-status="Available">Available</button><button data-status="Looking for a conversation">Looking for a conversation</button></div></div>
-        <label class="switch"><span>Show me in Around You<small>When off, other people don’t see you on the list or the map.</small></span><input type="checkbox" id="disc" role="switch"></label>
-        <button class="go" id="signout">Sign out</button>
+    <!-- Someone's profile -->
+    <div class="view scroll" id="v-profile"><div class="panel" id="profileBox"></div></div>
+
+    <!-- Your profile and privacy -->
+    <div class="view scroll" id="v-me">
+      <div class="panel">
+        <div class="top"><div class="av" id="sAv"></div><div><h3 id="sName"></h3><span class="sub" id="sUser"></span></div></div>
+        <div><div class="lbl">Status</div><div class="seg" id="seg" style="margin-top:.8em"><button data-status="Available">Available</button><button data-status="Looking for a conversation">Looking for a conversation</button></div></div>
+        <label class="switch"><span>Show me in Around You<small>When off, other people can’t see you on the list or the map.</small></span><input type="checkbox" id="disc" role="switch"></label>
+        <div class="switch"><span>Location<small id="geoText"></small></span><button class="btn-quiet" id="geoBtn" style="font-size:1.6em;padding:0 1.6em">Turn on</button></div>
+        <button class="btn-quiet" id="signout">Sign out</button>
       </div>
     </div>
   </main>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -9,6 +9,15 @@ appears in **Around You**; message them or join public conversations (there are 
 
 Friends: open someone's profile (tap their picture in a list, or their pin on the map), add them as a friend, and once they accept you can give them your own name. Friends stay in your Friends list and you can chat whether or not they are nearby.
 
+## Nearby and the map
+
+"Around You" and the map use your device's location (GPS). Each device sends its position to the server while
+the page is open; the server keeps it in memory only (never saved) and tells each person who is within
+500 m (change with `NEARBY_RADIUS_M=200 node server.js`). Other people only get positions rounded to about
+11 m. Phones and browsers only share location on HTTPS (or localhost), so use an https:// address. If nobody
+has shared a location (for example testing over plain http), everyone online is shown so you can still test.
+The map tiles come from CARTO/OpenStreetMap and the map library from cdnjs, so the map needs internet.
+
 ## Run on a computer
 
 Needs Node.js 18+. No install step:  `node server.js`  then open the address it prints.

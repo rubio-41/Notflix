@@ -27,6 +27,28 @@ const hash = t => crypto.createHash('sha256').update(t).digest('hex');
 const rid = n => crypto.randomBytes(n).toString('hex');
 
 // ---------- live connections ----------
+// ---------- location: kept in memory only (never saved), used to work out who is nearby ----------
+const RADIUS = Number(process.env.NEARBY_RADIUS_M) || 500;   // metres
+const locs = new Map();                                       // userId -> { lat, lng, ts }
+function haversine(a, b) {
+  const R = 6371000, t = x => x * Math.PI / 180, dLat = t(b.lat - a.lat), dLng = t(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(t(a.lat)) * Math.cos(t(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+const r4 = n => Math.round(n * 1e4) / 1e4;   // ~11 m: other people never get your exact coordinates
+function nearbyFor(id) {
+  const mine = locs.get(id), out = [];
+  Object.values(db.users).forEach(u => {
+    if (u.id === id || !isOnline(u.id) || u.discoverable === false) return;
+    const l = locs.get(u.id);
+    if (mine && l) { const d = haversine(mine, l); if (d <= RADIUS) out.push({ id: u.id, dist: Math.round(d / 5) * 5, lat: r4(l.lat), lng: r4(l.lng) }); }
+    else if (!mine && !l) out.push({ id: u.id });   // nobody has shared a location (e.g. testing on http): show everyone online
+  });
+  return out;
+}
+const pushAllNearby = () => clients.forEach((_, id) => toUser(id, 'nearby', nearbyFor(id)));
+setInterval(() => { let c = false; const old = Date.now() - 120000; locs.forEach((l, id) => { if (l.ts < old) { locs.delete(id); c = true; } }); if (c) pushAllNearby(); }, 30000);
+
 const clients = new Map(); // userId -> Set of open SSE responses
 const isOnline = id => clients.has(id) && clients.get(id).size > 0;
 function emit(res, event, data) { res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n'); }
@@ -107,16 +129,16 @@ async function api(req, res, url) {
       const wasOnline = isOnline(me.id);
       if (!clients.has(me.id)) clients.set(me.id, new Set());
       clients.get(me.id).add(res);
-      emit(res, 'init', { me: pub(me), users: Object.values(db.users).map(pub), rooms: Object.values(db.rooms), recent: partnersOf(me.id), friends: friendsFor(me.id) });
+      emit(res, 'init', { me: pub(me), users: Object.values(db.users).map(pub), rooms: Object.values(db.rooms), recent: partnersOf(me.id), friends: friendsFor(me.id), nearby: nearbyFor(me.id) });
       if (!wasOnline) {
-        toAll('presence', { id: me.id, online: true });
+        toAll('presence', { id: me.id, online: true }); pushAllNearby();
         // anything sent to me while I was away is now delivered
         db.messages.forEach(m => { if (m.to === me.id && m.status === 'sent') { m.status = 'delivered'; toUser(m.from, 'status', { id: m.id, status: 'delivered' }); } });
         save();
       }
       const beat = setInterval(() => res.write(': ping\n\n'), 25000);
       req.on('close', () => {
-        clearInterval(beat); const set = clients.get(me.id); if (set) { set.delete(res); if (!set.size) { clients.delete(me.id); toAll('presence', { id: me.id, online: false }); } }
+        clearInterval(beat); const set = clients.get(me.id); if (set) { set.delete(res); if (!set.size) { clients.delete(me.id); locs.delete(me.id); toAll('presence', { id: me.id, online: false }); pushAllNearby(); } }
       });
       return;
     }
@@ -157,8 +179,16 @@ async function api(req, res, url) {
       return json(res, 200, rm);
     }
 
+    if (route === 'POST /api/location') {
+      const b = await body(req), lat = Number(b.lat), lng = Number(b.lng);
+      if (!(lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180)) return json(res, 400, { error: 'Bad location.' });
+      const prev = locs.get(me.id); locs.set(me.id, { lat, lng, ts: Date.now() });
+      if (!prev || haversine(prev, { lat, lng }) > 3) pushAllNearby();   // only re-announce real movement
+      return json(res, 200, { ok: true });
+    }
+
     if (route === 'POST /api/privacy') {
-      const b = await body(req); me.discoverable = b.discoverable !== false; save(); toAll('user', pub(me)); return json(res, 200, pub(me));
+      const b = await body(req); me.discoverable = b.discoverable !== false; save(); toAll('user', pub(me)); pushAllNearby(); return json(res, 200, pub(me));
     }
 
     if (route.startsWith('POST /api/friends/')) {
