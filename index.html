@@ -3,16 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Create your profile</title>
+<title>Welcome</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <main class="signup">
-  <form id="form" novalidate>
+  <form id="form" data-mode="signup" novalidate>
     <p class="srverr" id="srvErr" role="alert" hidden></p>
-    <h1>Create your profile</h1>
-    <p class="lead">Pick a username to get started. No phone number or email needed.</p>
-    <div class="pic">
+    <h1 id="title">Create your profile</h1>
+    <div class="seg modes" role="group" aria-label="Account">
+      <button type="button" id="modeSignup" aria-pressed="true">Create account</button>
+      <button type="button" id="modeLogin" aria-pressed="false">Log in</button>
+    </div>
+    <div class="pic su">
       <div class="av" id="preview">?</div>
       <div>
         <label for="photo"><input id="photo" type="file" accept="image/*"><span>Add picture</span></label>
@@ -24,13 +27,17 @@
       <input class="pillin" id="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" placeholder="jay_nearby">
       <div class="hint" id="uHint"></div>
     </div>
-    <div class="field" id="fName">
+    <div class="field su" id="fName">
       <label for="display">Display name</label>
       <input class="pillin" id="display" autocomplete="nickname" maxlength="30" placeholder="Jay">
       <div class="hint" id="dHint"></div>
     </div>
-    <!-- Future: password field, tied to the username. -->
-    <button class="btn-main" type="submit">Continue</button>
+    <div class="field" id="fPass">
+      <label for="password">Password</label>
+      <input class="pillin" id="password" type="password" autocomplete="new-password" maxlength="100" placeholder="At least 8 characters">
+      <div class="hint" id="pHint"></div>
+    </div>
+    <button class="btn-main" id="submit" type="submit">Create account</button>
   </form>
 </main>
 <script>

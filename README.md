@@ -30,6 +30,19 @@ Do NOT put the key in the code. Set it as an environment variable named `CARTO_A
 In CARTO's key settings, restrict the key to your site's address (the key is visible to the browser).
 With no key set, the map falls back to OpenStreetMap tiles darkened with CSS.
 
+## Accounts, calls, voice messages, voice rooms
+
+- **Log in:** accounts now have a password (8+ characters). Log in from any device with username + password.
+  Accounts made before passwords existed can set one in Profile (on the device where they were created).
+- **Calls:** open a chat and tap the phone button. Audio goes straight between the two devices (WebRTC); the
+  server only introduces them. **Voice rooms:** every public conversation has one (mini bar → microphone icon,
+  or the microphone button in a conversation). Up to 8 people. Mute, leave, and a green ring shows who is talking.
+- **Voice messages:** tap the waveform button in the message box, speak, tap send (up to 3 minutes). Recordings are
+  stored on the server in `data/voice/`.
+- Microphone access needs HTTPS (or localhost). Calls use Google's public STUN servers; some networks (strict
+  Wi-Fi, some mobile carriers) also need a TURN relay: set `TURN_URLS`, `TURN_USERNAME`, `TURN_CREDENTIAL`.
+- Voice messages recorded in Chrome are WebM; older iPhones/Safari versions may not play those.
+
 ## Run on a computer
 
 Needs Node.js 18+. No install step:  `node server.js`  then open the address it prints.
@@ -45,6 +58,5 @@ Free tiers usually sleep when idle and may reset saved data on restart; set `DAT
 
 - A normal client–server app. NOT Bluetooth/Wi-Fi peer-to-peer; it needs a connection to the server.
 - "Around You" = online right now. No real distance yet; the map layout is illustrative.
-- No voice, video, attachments, blocking (the Voice button in the mini bar is a placeholder). "Show me in Around You" in Profile hides you from others' list and map, but is not a security feature yet.
+- No video, attachments, blocking, push-to-talk. "Show me in Around You" in Profile hides you from others' list and map, but is not a security feature yet.
 - "Report" saves a report in data/db.json.
-- No passwords: your device keeps a secret token. Clearing site data loses that username.

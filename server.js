@@ -15,6 +15,7 @@ try { db = Object.assign(db, JSON.parse(fs.readFileSync(DB_FILE, 'utf8'))); } ca
 const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 // Public conversations are created by users. Remove the built-in ones from earlier versions.
 Object.values(db.rooms).forEach(r => { if (r.createdBy === null) { delete db.rooms[r.id]; db.messages = db.messages.filter(m => m.room !== r.id); } });
+Object.values(db.users).forEach(u => { if (u.tokenHash) { u.tokens = (u.tokens || []).concat(u.tokenHash); delete u.tokenHash; } u.tokens = u.tokens || []; });
 let saveTimer = null;
 function save() {
   clearTimeout(saveTimer);
@@ -25,6 +26,15 @@ function save() {
 }
 const hash = t => crypto.createHash('sha256').update(t).digest('hex');
 const rid = n => crypto.randomBytes(n).toString('hex');
+function hashPw(pw) { const salt = crypto.randomBytes(16); return salt.toString('hex') + ':' + crypto.scryptSync(pw, salt, 32).toString('hex'); }
+function checkPw(pw, stored) {
+  if (!stored) return false; const [salt, h] = stored.split(':');
+  const x = crypto.scryptSync(pw, Buffer.from(salt, 'hex'), 32), y = Buffer.from(h, 'hex');
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+const tries = new Map();   // very small brute-force guard for logins
+function limited(key) { const now = Date.now(), t = tries.get(key) || { n: 0, ts: now }; if (now - t.ts > 600000) { t.n = 0; t.ts = now; } t.n++; tries.set(key, t); return t.n > 8; }
+function issueToken(u) { const t = rid(24); u.tokens = (u.tokens || []).slice(-9).concat(hash(t)); return t; }
 
 // ---------- live connections ----------
 // ---------- location: kept in memory only (never saved), used to work out who is nearby ----------
@@ -54,7 +64,14 @@ const isOnline = id => clients.has(id) && clients.get(id).size > 0;
 function emit(res, event, data) { res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n'); }
 function toUser(id, event, data) { (clients.get(id) || []).forEach(r => emit(r, event, data)); }
 function toAll(event, data) { clients.forEach(set => set.forEach(r => emit(r, event, data))); }
-const pub = u => ({ id: u.id, username: u.username, displayName: u.displayName, status: u.status, discoverable: u.discoverable !== false, photo: u.photo ? u.photoVer : 0, online: isOnline(u.id) });
+const calls = new Map();        // callId -> { id, from, to, state: 'ringing'|'active' }
+const voiceRooms = new Map();   // roomId -> Set(userId)  (every public conversation has a voice room)
+const callOf = id => { for (const c of calls.values()) if (c.from === id || c.to === id) return c; return null; };
+const inVoice = id => { for (const [r, set] of voiceRooms) if (set.has(id)) return r; return null; };
+const busy = id => !!callOf(id) || !!inVoice(id);
+const voiceState = () => { const o = {}; voiceRooms.forEach((set, r) => { if (set.size) o[r] = [...set]; }); return o; };
+const liveStatus = u => inVoice(u.id) ? 'In a voice room' : (callOf(u.id) && callOf(u.id).state === 'active') ? 'On a call' : u.status;
+const pub = u => ({ id: u.id, username: u.username, displayName: u.displayName, status: liveStatus(u), discoverable: u.discoverable !== false, photo: u.photo ? u.photoVer : 0, online: isOnline(u.id) });
 
 // ---------- helpers ----------
 const STATUSES = ['Available', 'Looking for a conversation'];
@@ -65,10 +82,17 @@ function body(req, limit = 400000) {
   });
 }
 function json(res, code, obj) { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); }
+const tokenOf = (req, url) => (req.headers.authorization || '').replace('Bearer ', '') || url.searchParams.get('token') || '';
 function authUser(req, url) {
-  const t = (req.headers.authorization || '').replace('Bearer ', '') || url.searchParams.get('token') || '';
-  if (!t) return null; const h = hash(t);
-  return Object.values(db.users).find(u => u.tokenHash === h) || null;
+  const t = tokenOf(req, url); if (!t) return null; const h = hash(t);
+  return Object.values(db.users).find(u => u.tokens.includes(h)) || null;
+}
+function rawBody(req, limit) {
+  return new Promise((ok, no) => {
+    const chunks = []; let n = 0;
+    req.on('data', c => { n += c.length; if (n > limit) { no(new Error('That recording is too large.')); req.destroy(); } else chunks.push(c); });
+    req.on('end', () => ok(Buffer.concat(chunks))); req.on('error', no);
+  });
 }
 // ---------- friends: a request, accepted by the other person; nicknames are private to the one who sets them ----------
 const pairKey = (x, y) => [x, y].sort().join('|');
@@ -83,10 +107,42 @@ function friendsFor(id) {
 }
 const pushFriends = (...ids) => ids.forEach(i => toUser(i, 'friends', friendsFor(i)));
 
+const touch = id => { if (db.users[id]) toAll('user', pub(db.users[id])); };
+function leaveVoice(id) {
+  let ch = false; voiceRooms.forEach((set, r) => { if (set.delete(id)) { ch = true; if (!set.size) voiceRooms.delete(r); } });
+  if (ch) { toAll('voice', voiceState()); touch(id); }
+}
+function dropUser(id) {   // their last connection closed
+  for (const c of [...calls.values()]) if (c.from === id || c.to === id) {
+    calls.delete(c.id); const other = c.from === id ? c.to : c.from; toUser(other, 'call', { type: 'ended', id: c.id, reason: 'dropped' }); touch(other);
+  }
+  leaveVoice(id);
+}
+function iceServers() {
+  const list = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+  if (process.env.TURN_URLS) list.push({ urls: process.env.TURN_URLS.split(',').map(x => x.trim()), username: process.env.TURN_USERNAME || '', credential: process.env.TURN_CREDENTIAL || '' });
+  return list;
+}
 function partnersOf(id) {
   const s = new Set();
   db.messages.forEach(m => { if (m.to === id) s.add(m.from); else if (m.from === id && m.to) s.add(m.to); });
   return [...s];
+}
+
+function createMessage(me, b, extra, beforeSave) {
+  const m = Object.assign({ id: rid(8), from: me.id, ts: Date.now() }, extra);
+  if (b.room) {
+    const rm = db.rooms[b.room]; if (!rm) return { error: 'No such conversation.', code: 404 };
+    m.room = b.room; rm.members = rm.members || [];
+    if (!rm.members.includes(me.id)) { rm.members.push(me.id); toAll('room', rm); }
+  } else {
+    if (!db.users[b.to] || b.to === me.id) return { error: 'No such person.', code: 404 };
+    m.to = b.to; m.status = isOnline(b.to) ? 'delivered' : 'sent';
+  }
+  if (beforeSave) beforeSave();
+  db.messages.push(m); save();
+  if (m.room) toAll('message', m); else { toUser(m.to, 'message', m); toUser(me.id, 'message', m); }
+  return { m };
 }
 
 // ---------- API ----------
@@ -94,30 +150,42 @@ async function api(req, res, url) {
   const route = req.method + ' ' + url.pathname;
   try {
     if (route === 'GET /api/health') return json(res, 200, { ok: true });
-    // Public map settings. The CARTO key is read from the CARTO_API_KEY environment variable, never stored in the code.
-    if (route === 'GET /api/config') return json(res, 200, { cartoKey: process.env.CARTO_API_KEY || '' });
+
 
     if (route === 'POST /api/signup') {
       const b = await body(req);
-      const username = String(b.username || '').trim().toLowerCase(), displayName = String(b.displayName || '').trim();
+      const username = String(b.username || '').trim().toLowerCase(), displayName = String(b.displayName || '').trim(), password = String(b.password || '');
       if (!/^[a-z0-9._]{3,20}$/.test(username)) return json(res, 400, { error: 'Use 3–20 letters, numbers, dots or underscores.', field: 'username' });
       if (!displayName || displayName.length > 30) return json(res, 400, { error: 'Enter a display name (up to 30 characters).', field: 'displayName' });
+      if (password.length < 8 || password.length > 100) return json(res, 400, { error: 'Use a password of at least 8 characters.', field: 'password' });
       if (Object.values(db.users).some(u => u.username === username)) return json(res, 409, { error: 'That username is taken.', field: 'username' });
       let photo = null;
       if (b.photo) {
         if (typeof b.photo !== 'string' || b.photo.length > 200000 || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(b.photo)) return json(res, 400, { error: 'That picture could not be used.', field: 'photo' });
         photo = b.photo;
       }
-      const token = rid(24), id = rid(6);
-      const u = db.users[id] = { id, username, displayName, status: 'Available', photo, photoVer: Date.now(), tokenHash: hash(token), createdAt: Date.now() };
+      const id = rid(6);
+      const u = db.users[id] = { id, username, displayName, status: 'Available', photo, photoVer: Date.now(), tokens: [], pw: hashPw(password), createdAt: Date.now() };
+      const token = issueToken(u);
       save(); toAll('user', pub(u));
       return json(res, 200, { token, me: pub(u) });
     }
 
+    if (route === 'POST /api/login') {
+      const b = await body(req), username = String(b.username || '').trim().toLowerCase(), password = String(b.password || '');
+      const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+      if (limited(ip + ':' + username)) return json(res, 429, { error: 'Too many attempts. Wait a few minutes and try again.' });
+      const u = Object.values(db.users).find(x => x.username === username);
+      if (u && !u.pw) return json(res, 403, { error: 'This account has no password yet. Open it on the device where you made it and set one in Profile.' });
+      if (!u || !checkPw(password, u.pw)) return json(res, 401, { error: 'Wrong username or password.' });
+      return json(res, 200, { token: issueToken(u), me: pub(u) });
+    }
+    if (route === 'GET /api/config') return json(res, 200, { cartoKey: process.env.CARTO_API_KEY || '' });
+
     const me = authUser(req, url);
     if (!me) return json(res, 401, { error: 'Not signed in.' });
 
-    if (route === 'GET /api/me') return json(res, 200, pub(me));
+    if (route === 'GET /api/me') return json(res, 200, Object.assign(pub(me), { hasPassword: !!me.pw }));
 
     if (route === 'POST /api/status') {
       const b = await body(req);
@@ -131,7 +199,7 @@ async function api(req, res, url) {
       const wasOnline = isOnline(me.id);
       if (!clients.has(me.id)) clients.set(me.id, new Set());
       clients.get(me.id).add(res);
-      emit(res, 'init', { me: pub(me), users: Object.values(db.users).map(pub), rooms: Object.values(db.rooms), recent: partnersOf(me.id), friends: friendsFor(me.id), nearby: nearbyFor(me.id) });
+      emit(res, 'init', { me: Object.assign(pub(me), { hasPassword: !!me.pw }), users: Object.values(db.users).map(pub), rooms: Object.values(db.rooms), recent: partnersOf(me.id), friends: friendsFor(me.id), nearby: nearbyFor(me.id), voice: voiceState() });
       if (!wasOnline) {
         toAll('presence', { id: me.id, online: true }); pushAllNearby();
         // anything sent to me while I was away is now delivered
@@ -140,7 +208,7 @@ async function api(req, res, url) {
       }
       const beat = setInterval(() => res.write(': ping\n\n'), 25000);
       req.on('close', () => {
-        clearInterval(beat); const set = clients.get(me.id); if (set) { set.delete(res); if (!set.size) { clients.delete(me.id); locs.delete(me.id); toAll('presence', { id: me.id, online: false }); pushAllNearby(); } }
+        clearInterval(beat); const set = clients.get(me.id); if (set) { set.delete(res); if (!set.size) { clients.delete(me.id); locs.delete(me.id); dropUser(me.id); toAll('presence', { id: me.id, online: false }); pushAllNearby(); } }
       });
       return;
     }
@@ -155,16 +223,24 @@ async function api(req, res, url) {
     if (route === 'POST /api/message') {
       const b = await body(req), text = String(b.text || '').trim();
       if (!text || text.length > 2000) return json(res, 400, { error: 'Message must be 1–2000 characters.' });
-      const m = { id: rid(8), from: me.id, ts: Date.now(), text };
-      if (b.room) {
-        const rm = db.rooms[b.room]; if (!rm) return json(res, 404, { error: 'No such conversation.' });
-        m.room = b.room; rm.members = rm.members || [];
-        if (!rm.members.includes(me.id)) { rm.members.push(me.id); toAll('room', rm); }
-      }
-      else { if (!db.users[b.to] || b.to === me.id) return json(res, 404, { error: 'No such person.' }); m.to = b.to; m.status = isOnline(b.to) ? 'delivered' : 'sent'; }
-      db.messages.push(m); save();
-      if (m.room) toAll('message', m); else { toUser(m.to, 'message', m); toUser(me.id, 'message', m); }
-      return json(res, 200, m);
+      const r = createMessage(me, b, { text }); return r.error ? json(res, r.code, { error: r.error }) : json(res, 200, r.m);
+    }
+
+    if (route === 'POST /api/voicemsg') {            // a recorded voice message (raw audio bytes in the body)
+      const to = url.searchParams.get('to'), room = url.searchParams.get('room'), dur = Math.round(Number(url.searchParams.get('dur')));
+      const mime = String(url.searchParams.get('mime') || '');
+      if (!/^audio\/(webm|mp4|ogg|mpeg|aac|x-m4a)$/.test(mime) || !(dur >= 1 && dur <= 180)) return json(res, 400, { error: 'Bad voice message.' });
+      const buf = await rawBody(req, 3 * 1024 * 1024); if (buf.length < 200) return json(res, 400, { error: 'That recording is empty.' });
+      const fid = rid(10), r = createMessage(me, to ? { to } : { room }, { text: '', voice: { id: fid, dur, mime } }, () => {
+        fs.mkdirSync(path.join(DATA_DIR, 'voice'), { recursive: true }); fs.writeFileSync(path.join(DATA_DIR, 'voice', fid + '.bin'), buf);
+      });
+      return r.error ? json(res, r.code, { error: r.error }) : json(res, 200, r.m);
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/api/voicemsg/')) {
+      const fid = url.pathname.split('/').pop(), m = db.messages.find(x => x.voice && x.voice.id === fid);
+      if (!m || !/^[a-f0-9]+$/.test(fid) || !(m.room || m.from === me.id || m.to === me.id)) return json(res, 404, { error: 'Not found.' });
+      try { const data = fs.readFileSync(path.join(DATA_DIR, 'voice', fid + '.bin')); res.writeHead(200, { 'Content-Type': m.voice.mime, 'Content-Length': data.length, 'Cache-Control': 'private, max-age=86400' }); return res.end(data); }
+      catch (e) { return json(res, 404, { error: 'That recording is no longer available.' }); }
     }
 
     if (route === 'POST /api/rooms') {
@@ -211,6 +287,59 @@ async function api(req, res, url) {
         if (n) db.nicknames[nk] = n; else delete db.nicknames[nk];
       } else return json(res, 404, { error: 'Not found.' });
       save(); pushFriends(me.id, other.id); return json(res, 200, { ok: true });
+    }
+
+    if (route === 'POST /api/logout') { const h = hash(tokenOf(req, url)); me.tokens = me.tokens.filter(x => x !== h); save(); return json(res, 200, { ok: true }); }
+    if (route === 'POST /api/password') {
+      const b = await body(req), pw = String(b.password || '');
+      if (me.pw && !checkPw(String(b.current || ''), me.pw)) return json(res, 400, { error: 'Your current password is wrong.' });
+      if (pw.length < 8 || pw.length > 100) return json(res, 400, { error: 'Use a password of at least 8 characters.' });
+      me.pw = hashPw(pw); save(); return json(res, 200, { ok: true });
+    }
+    if (route === 'GET /api/ice') return json(res, 200, { iceServers: iceServers() });
+
+    // ----- calls (1:1) and voice rooms: the server only introduces people; audio goes directly between devices (WebRTC) -----
+    if (route === 'POST /api/call/start') {
+      const b = await body(req), to = db.users[b.to];
+      if (!to || to.id === me.id) return json(res, 404, { error: 'No such person.' });
+      if (!isOnline(to.id)) return json(res, 409, { error: 'They are offline right now.' });
+      if (busy(me.id)) return json(res, 409, { error: 'You are already in a call or voice room.' });
+      if (busy(to.id)) return json(res, 409, { error: 'They are busy right now.' });
+      const c = { id: rid(6), from: me.id, to: to.id, state: 'ringing' }; calls.set(c.id, c);
+      toUser(to.id, 'call', { type: 'incoming', id: c.id, from: me.id });
+      setTimeout(() => { const x = calls.get(c.id); if (x && x.state === 'ringing') { calls.delete(x.id); toUser(x.from, 'call', { type: 'ended', id: x.id, reason: 'noanswer' }); toUser(x.to, 'call', { type: 'ended', id: x.id, reason: 'missed' }); } }, 45000);
+      return json(res, 200, { id: c.id });
+    }
+    if (route === 'POST /api/call/answer') {
+      const b = await body(req), c = calls.get(b.id);
+      if (!c || c.to !== me.id || c.state !== 'ringing') return json(res, 404, { error: 'That call is no longer available.' });
+      if (b.accept) { c.state = 'active'; toUser(c.from, 'call', { type: 'accepted', id: c.id }); touch(c.from); touch(c.to); }
+      else { calls.delete(c.id); toUser(c.from, 'call', { type: 'ended', id: c.id, reason: 'declined' }); }
+      return json(res, 200, { ok: true });
+    }
+    if (route === 'POST /api/call/end') {
+      const b = await body(req), c = calls.get(b.id);
+      if (c && (c.from === me.id || c.to === me.id)) { calls.delete(c.id); const other = c.from === me.id ? c.to : c.from; toUser(other, 'call', { type: 'ended', id: c.id, reason: 'ended' }); touch(c.from); touch(c.to); }
+      return json(res, 200, { ok: true });
+    }
+    if (route === 'POST /api/voice/join') {
+      const b = await body(req); if (!db.rooms[b.room]) return json(res, 404, { error: 'No such conversation.' });
+      if (callOf(me.id)) return json(res, 409, { error: 'Finish your call first.' });
+      const set = voiceRooms.get(b.room) || new Set();
+      if (!set.has(me.id) && set.size >= 8) return json(res, 409, { error: 'This voice room is full (8 people).' });
+      const existing = [...set].filter(id => id !== me.id);
+      leaveVoice(me.id); const cur = voiceRooms.get(b.room) || set; cur.add(me.id); voiceRooms.set(b.room, cur); toAll('voice', voiceState()); touch(me.id);
+      return json(res, 200, { participants: existing });
+    }
+    if (route === 'POST /api/voice/leave') { leaveVoice(me.id); return json(res, 200, { ok: true }); }
+    if (route === 'POST /api/signal') {   // relay WebRTC offers/answers/candidates between two people in the same call or voice room
+      const b = await body(req), to = b.to;
+      if (!db.users[to] || !b.data || typeof b.data !== 'object') return json(res, 400, { error: 'Bad signal.' });
+      let ok = false;
+      if (b.id) { const c = calls.get(b.id); ok = !!c && ((c.from === me.id && c.to === to) || (c.to === me.id && c.from === to)); }
+      else if (b.room) { const set = voiceRooms.get(b.room); ok = !!set && set.has(me.id) && set.has(to); }
+      if (!ok) return json(res, 400, { error: 'Not in the same call.' });
+      toUser(to, 'signal', { from: me.id, id: b.id, room: b.room, data: b.data }); return json(res, 200, { ok: true });
     }
 
     if (route === 'POST /api/report') {
